@@ -1,4 +1,4 @@
-FROM debian:bullseye
+FROM debian:oldstable
 
 # Install nginx and openssl
 RUN apt update -y && apt upgrade -y && \
@@ -6,11 +6,12 @@ RUN apt update -y && apt upgrade -y && \
 
 # Generate a self-signed ssl certificate
 RUN openssl req -batch -x509 -sha256 -nodes -newkey rsa:2048 -days 365 \
-	-keyout /etc/ssl/private/localhost.key \
-	-out /etc/ssl/certs/localhost.crt
+	-keyout /etc/ssl/private/bda-mota.key \
+	-out /etc/ssl/certs/bda-mota.crt \
+	-subj "/C=Br/ST=SP/L=Sao Paulo/O=42sp/CN=bda-mota.42.fr"
 
 # Copy the nginx configuration file
-COPY ./https.conf /etc/nginx/conf.d
+COPY ./conf/https.conf /etc/nginx/conf.d
 
 # Expose port 443 ( https )
 EXPOSE 443

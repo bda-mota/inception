@@ -1,4 +1,4 @@
-FROM debian:bullseye
+FROM debian:oldstable
 
 ARG WORDPRESS_DATABASE
 ARG WORDPRESS_USER
@@ -19,7 +19,6 @@ RUN service mariadb start && \
 	CREATE USER 'wuser'@'%' identified by 'wpass'; \
 	GRANT ALL ON wordpress_db.* TO 'wuser'@'%' IDENTIFIED BY 'wpass'; \
 	FLUSH PRIVILEGES;" && \
-	mariadb -u root $WORDPRESS_DATABASE < /tmp/dump.sql && \
 	service mariadb stop
 
 # Start the mariadb service when the container is run

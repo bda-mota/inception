@@ -1,5 +1,9 @@
+version: '3.8'
+
 # Name of the project
-name: inception
+networks:
+  inception:
+    name: inception
 
 # Services to run ( containers )
 services:
@@ -43,11 +47,6 @@ services:
       - wordpress:/var/www/html
     depends_on:
       - wordpress
-
-# Create a bridge network by default
-networks:
-  inception:
-    name: inception
 
 # Create volumes
 volumes:

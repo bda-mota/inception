@@ -1,62 +1,82 @@
 version: '3.8'
 
-# Name of the project
+############## NETWORKS ##############
+
 networks:
   inception:
     name: inception
 
-# Services to run ( containers )
-services:
-  mariadb:
-    container_name: mariadb
-    build:
-      context: requirements/mariadb
-      args:
-        - WORDPRESS_DATABASE
-        - WORDPRESS_USER
-        - WORDPRESS_PASSWORD
-    networks:
-      - inception
-    volumes:
-      - mariadb:/var/lib/mysql
+############## VOLUMES ################
 
-  wordpress:
-    container_name: wordpress
-    build:
-      context: requirements/wordpress
-      args:
-        - WORDPRESS_DATABASE
-        - WORDPRESS_USER
-        - WORDPRESS_PASSWORD
-    networks:
-      - inception
-    volumes:
-      - wordpress:/var/www/html
-    depends_on:
-      - mariadb
-
-  nginx:
-    container_name: nginx
-    build:
-      context: requirements/nginx
-    networks:
-      - inception
-    ports:
-      - 443:443
-    volumes:
-      - wordpress:/var/www/html
-    depends_on:
-      - wordpress
-
-# Create volumes
 volumes:
-  mariadb:
-    driver_opts:
-      o: bind
-      type: none
-      device: /home/bda-mota/data/mariadb
-  wordpress:
+  wordpress_data:
+    name: wordpress_data
     driver_opts:
       o: bind
       type: none
       device: /home/bda-mota/data/wordpress
+    
+  mariadb_data:
+    name: mariadb_data
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/bda-mota/data/mariadb
+
+##############  SERVICES ##############
+
+services:
+  mariadb:
+    image: mariadb:42project
+    container_name: mariadb
+    env_file:
+      - .env
+    build: 
+      context: requirements/mariadb
+      args:
+        - ADMIN_NAME=${ADMIN_NAME}
+        - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+        - DATABASE_NAME=${DATABASE_NAME}
+        - ROOT_PASSWORD=${ROOT_PASSWORD}
+    environment:
+      - ADMIN_NAME
+      - ADMIN_PASSWORD
+      - DATABASE_NAME
+      - ROOT_PASSWORD
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - inception
+    expose:
+      - 3306
+    restart: on-failure
+  wordpress:
+    depends_on:
+      - mariadb
+    image: wordpress:42project
+    container_name: wordpress
+    build:
+      context: ./requirements/wordpress/
+    expose:
+      - 9000
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - inception
+    env_file:
+      - .env
+    restart: on-failure
+  nginx:
+    depends_on:
+      - wordpress
+    image: nginx:42project
+    container_name: nginx
+    build:
+      context: ./requirements/nginx/
+    ports:
+      - "443:443"
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - inception
+    restart: always

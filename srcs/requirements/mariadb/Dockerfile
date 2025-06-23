@@ -1,25 +1,29 @@
 FROM debian:oldstable
 
-ARG WORDPRESS_DATABASE
-ARG WORDPRESS_USER
-ARG WORDPRESS_PASSWORD
+# Define environment variables that will be passed during the build
+ARG ADMIN_NAME
+ARG ADMIN_PASSWORD
+ARG DATABASE_NAME
+ARG ROOT_PASSWORD
 
-RUN apt update -y && apt upgrade -y && apt install mariadb-server -y
+# Update the system and install the MariaDB server, cleaning up package cache
+RUN apt update -y && apt upgrade -y \
+    && apt install mariadb-server -y \
+    && rm -rf /var/lib/apt/lists/*
 
-# By default MariaDB is bound to localhost, it does not allow remote connections
-# This setting allows remote connections from any host ( in our case, other containers )
-RUN echo "[mysqld] \n\
-skip-networking=0 \n\
-skip-bind-address" >> /etc/mysql/my.cnf
+# Create the directory for MySQL process and set permissions
+    RUN mkdir -p /var/run/mysqld \
+	&& chown -R mysql:mysql /var/run/mysqld \
+	&& chmod 777 /var/run/mysqld
 
-# Start the mariadb service and create a database and user for wordpress
-RUN service mariadb start && \
-	mariadb -u root -e \
-	"CREATE DATABASE IF NOT EXISTS wordpress_db; \
-	CREATE USER 'wuser'@'%' identified by 'wpass'; \
-	GRANT ALL ON wordpress_db.* TO 'wuser'@'%' IDENTIFIED BY 'wpass'; \
-	FLUSH PRIVILEGES;" && \
-	service mariadb stop
+# Copy the MariaDB configuration file into the container
+COPY cnf/my.cnf /etc/mysql/my.cnf
 
-# Start the mariadb service when the container is run
+# Copy the initialization script into the container
+COPY conf/run.sh /tmp/run.sh
+
+# Change script permissions and execute it to set up the database
+RUN chmod 777 /tmp/run.sh && bash /tmp/run.sh
+
+# Command to safely start the MariaDB service
 CMD ["mysqld_safe"]

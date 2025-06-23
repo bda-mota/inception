@@ -1,44 +1,45 @@
 FROM debian:oldstable
 
-ARG WORDPRESS_DATABASE
-ARG WORDPRESS_USER
-ARG WORDPRESS_PASSWORD
+# Environment variables to be passed at runtime via docker-compose
+ENV ADMIN_NAME=${ADMIN_NAME}
+ENV ADMIN_PASSWORD=${ADMIN_PASSWORD}
+ENV DATABASE_HOST=${DATABASE_HOST}
 
-# Set the working directory to /var/www/html ( Where wordpress will be installed )
+# Set the working directory to /var/www/html (Where WordPress will be installed)
 WORKDIR /var/www/html/
 
-# Install php-fpm, php-mysql, mariadb-client and wget
+# Install PHP, MySQL support, MariaDB client, wget, curl and cleanup
 RUN apt update -y && apt upgrade -y && apt install -y \
-	php-fpm \
-	php-mysql \
-	mariadb-client -y \
-	wget
+    php7.4 \
+    php7.4-fpm \
+    php7.4-mysql \
+    mariadb-client \
+    wget \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Replace the default PHP-FPM listen location ( which is a local socket ) with port 9000 for the php-fpm container to be able to communicate with nginx
-# .default → make a backup of the original conf
-# [0-9]* → glob pattern to match any php version
-RUN sed -i.default "/^listen\s=.*/c\listen = 0.0.0.0:9000" \
-	/etc/php/[0-9]*.[0-9]*/fpm/pool.d/www.conf
+# Install WP-CLI to manage WordPress via command line
+RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
+    chmod +x wp-cli.phar && \
+    mv wp-cli.phar /usr/local/bin/wp
 
-# Install Wordpress
-RUN wget https://wordpress.org/latest.tar.gz && \
-	tar -xzf latest.tar.gz && \
-	mv wordpress/* . && \
-	rm -rf wordpress && \
-	rm -rf latest.tar.gz
+# Replace the default PHP-FPM listen location (which is a Unix socket) with port 9000
+RUN sed -i "s|^listen =.*|listen = 0.0.0.0:9000|" /etc/php/7.4/fpm/pool.d/www.conf
 
-# Configure wordpress to use the database created in the mariadb container
-RUN cp wp-config-sample.php wp-config.php && \
-	sed -i "s/database_name_here/wordpress_db/g" wp-config.php && \
-	sed -i "s/username_here/wuser/g" wp-config.php && \
-	sed -i "s/password_here/wpass/g" wp-config.php && \
-	sed -i "s/localhost/mariadb/g" wp-config.php
-
-# Create the directory where php-fpm will store the pid file
+# Create the directory where PHP-FPM will store the PID/socket file (just in case)
 RUN mkdir -p /run/php
 
-# An alias to call php-fpm without specifying the version on the CMD below
-RUN ln -s $(find /usr/sbin -name 'php-fpm*') /usr/bin/php-fpm
+# Download and extract WordPress
+RUN wget https://wordpress.org/latest.tar.gz -O latest.tar.gz && \
+    tar -xvzf latest.tar.gz && \
+    mv wordpress/* /var/www/html/ && \
+    rm -rf wordpress latest.tar.gz
 
-# Start php-fpm in foreground
-CMD ["php-fpm", "-F"]
+# Copy the setup script that will be executed when the container starts
+COPY /conf/run.sh /tmp/wp_setup.sh
+
+# Make the script executable
+RUN chmod +x /tmp/wp_setup.sh
+
+# Start WordPress setup script and PHP-FPM in foreground
+CMD ["/tmp/wp_setup.sh"]

@@ -12,7 +12,7 @@ config:
 
 	@echo "Getting the .env file..."
 	@if [ ! -f ./srcs/.env ]; then \
-		wget -P ./srcs https://raw.githubusercontent.com/bda-mota/inception/master/srcs/.env; \
+		wget -P ./srcs https://raw.githubusercontent.com/bda-mota/inception/main/srcs/.env; \
 		else echo ".env file already exists!"; \
 	fi
 
